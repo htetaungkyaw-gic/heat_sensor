@@ -43,35 +43,53 @@ def read_tempc():
         temp_c = float(temp_string) / 1000.0
         return temp_c
 
+def read_tempf():
+    lines = read_temp_raw() # Read the temperature 'device file'
+
+    # While the first line does not contain 'YES', wait for 0.2s
+    # and then read the device file again.
+    while lines[0].strip()[-3:] != 'YES':
+        time.sleep(0.2)
+        lines = read_temp_raw()
+
+    # Look for the position of the '=' in the second line of the
+    # device file.
+    equals_pos = lines[1].find('t=')
+    if equals_pos != -1:
+        temp_string = lines[1][equals_pos+2:]
+        temp_c = float(temp_string) / 1000.0
+        temp_f = temp_c * 9.0 / 5.0 + 32.0
+        return temp_f
+    
 try:
     
     #sql_ip = socket.gethostbyname('GIC-LPT-0110.local')
     #sql_ip = socket.gethostbyname('raspberrypi')
-    #sql_ip = "192.168.0.54"
-    dbname='omron_env'
+    sql_ip = "192.168.0.54"
+    dbname='heatsensor_db'
     sql_host='192.168.21.1'
     sql_user='root'
     sql_pass='1233'
     
     while True:
                                     
-        device_name = "machine1R"
-        idcode = device_name + datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+        sensor_id = 1
+        idcode = str(sensor_id)+"_" + datetime.datetime.now().strftime("%Y%m%d%H%M%S")
         time_measured = datetime.datetime.now().strftime("%Y/%m/%d %H:%M:%S")
         hrago = (datetime.datetime.now() - datetime.timedelta(hours=24)).strftime("%Y/%m/%d %H:%M:%S")
+        temperatureF = round(read_tempf(), 2)
         temperatureC = round(read_tempc(), 2)
         
-        sql = "INSERT INTO heatsensor(id,device_id,TemperatureC,time_measured) VALUES (%s, %s, %s, %s)"
-        val = (idcode, device_name, temperatureC , time_measured)
-        
-        
+        sql = "INSERT INTO sensor_data(id,sensor_id,read_date,temperature) VALUES (%s, %s, %s, %s)"
+        val = (idcode, sensor_id, time_measured, temperatureC)
+
         try:
             
             #mydb = connect(host=sql_ip,port=3306,user="root",password="1233",database="omron_env")
             mydb = connect(host=sql_host,port=3306,user = sql_user,password = sql_pass,database = dbname)
             mydb.autocommit = False
             mycursor = mydb.cursor()
-                        
+            
             mycursor.execute(sql, val)
             mydb.commit()
                   
